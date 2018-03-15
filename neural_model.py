@@ -115,11 +115,11 @@ class I_Pot_A:
 #Cells
 #########
 class Cell:
-	def __init__(self, V0=0,DC0=0):
+	def __init__(self, V0=0,DC=0):
 		self.E_l = -50
 		self.G_l = 0.15
 		self.G_kl = 0.02
-		self.DC = DC0
+		self.DC = DC
 		self.S = 1.43e-4
 		self.syn_idxs = []
 
@@ -147,11 +147,11 @@ class Cell:
 
 # Inhibitory Cell - Same as Cell
 class Inh_Cell(Cell):
-	def __init__(self, V0=0, DC0=0):
+	def __init__(self, V0=0, DC=0):
 		self.E_l = -50
 		self.G_l = 0.15
 		self.G_kl = 0.02
-		self.DC = DC0
+		self.DC = DC
 		self.S = 1.43e-4
 		self.syn_idxs = []
 
@@ -161,11 +161,11 @@ class Inh_Cell(Cell):
 
 # Excitatory Cell - Similar to Cell
 class Exc_Cell(Cell):
-	def __init__(self, V0=0, DC0=0):
+	def __init__(self, V0=0, DC=0):
 		self.E_l = -70
 		self.G_l = 0.01
 		self.G_kl = 0.012
-		self.DC = DC0 #0.001
+		self.DC = DC #0.001
 		self.S = 1.43e-4
 		self.syn_idxs = []
 
@@ -207,6 +207,8 @@ class synapse:
 				self.C = self.Cmax
 				self.R0 = self.R
 				self.lastrelease = t
+		elif (q < 0):
+			pass
 		elif (self.C==self.Cmax):
 			self.R1=self.R
 			self.C=0
@@ -257,10 +259,10 @@ class GABA(synapse):
 #Input "Synapse"
 
 class InPulse:
-	def __init__(self, g_MAX):
+	def __init__(self, g_MAX, t_on, t_off):
 		self.g_MAX = g_MAX
-		self.t_on = 500
-		self.t_off = 1500
+		self.t_on = t_on
+		self.t_off = t_off
 		self.tau_on = 150
 		self.tau_off = 150
 		self.R = 0

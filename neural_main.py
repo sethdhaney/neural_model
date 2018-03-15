@@ -2,22 +2,23 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from neural_model import *
+from scipy.integrate import RK45
 
-NECells = 1
-NICells = 1
+NECells = 10
+NICells = 10
 
-np.random.seed(0)
-rDC = 1.5e-4*np.random.rand(NECells+NICells, 1).flatten()
-ENs = [Exc_Cell(V0=-70, DC0=rDC[i]) for i in range(NECells)]
-INs = [Exc_Cell(V0=-70, DC0=rDC[i]) for i in range(NICells)]
-#INs = [Inh_Cell(V0=-61) for_ in range(NICells)]
-y_sv = []
-t_sv = []
-synapses = []
+np.random.seed(1)
+rDC = 5e-5*np.random.rand(NECells+NICells, 1).flatten()
+DC0 = 7e-5
+ENs = [Exc_Cell(V0=-70, DC=DC0+rDC[i]) for i in range(NECells)]
+INs = [Exc_Cell(V0=-70, DC=DC0+rDC[NECells+i]) for i in range(NICells)]
+#INs = [Inh_Cell(V0=-61) for _ in range(NICells)]
 
-g_AMPA = 0; g_GABA = 0; g_Inp = 1e-1
+y = []; y_sv = []; t_sv = []; cell_idxs = []; synapses = []
 
-#TODO -variability; 
+g_AMPA = 1e-1; g_GABA = 1e-1; g_Inp = 1e-1
+
+#TODO - single linear y variable. 
 
 
 def rhs(y,t):
@@ -26,17 +27,18 @@ def rhs(y,t):
 		#TODO - Need to do deal with the input case
 		i_pre = syn.pre_idx; i_post = syn.post_idx
 		if ((i_pre is not -1) and (i_post is not -1)):
-			v_pre = y[i_pre][0]; v_post = y[i_post][0]
+			v_pre = y[i_pre]; v_post = y[i_post]
 		else:
 			v_pre = -1; v_post = -1
 		syn.calc(t,v_pre,v_post)
 
 	for i in range(NECells):
 		I_syn = sum([synapses[j].I for j in ENs[i].syn_idxs])
-		dy.append(ENs[i].calc(y[i],t,I_syn))
+		dy +=ENs[i].calc(y[cell_idxs[i]],t,I_syn)
 	for i in range(NICells):
 		I_syn = sum([synapses[j].I for j in INs[i].syn_idxs])
-		dy.append(INs[i].calc(y[i],t,I_syn))
+		dy += INs[i].calc(y[cell_idxs[NECells+i]],t,I_syn)
+		
 		
 	return np.array(dy)
 
@@ -44,66 +46,108 @@ def rhs(y,t):
 def main():
 	
 	h = 0.05		#MS
-	NT = 40000		#2s
+	TF = 2000
+	NT = int(np.ceil(TF/h))
 	
 	
 	
 	# INITIALIZE VARS
 	# Y contains all of the current states of all the
 	# dynamic variables (voltages, m,h,n).
-	y = [EN.get_initial() for EN in ENs]
-	[y.append(IN.get_initial()) for IN in INs]
+	idx = 0
+	global y
+	global cell_idxs
+	for i in range(len(ENs)):
+		y0 = ENs[i].get_initial()
+		y+=y0
+		cell_idxs.append(idx + np.array(range(len(y0))))
+		idx = idx + len(y0)
+	for i in range(len(INs)):
+		y0 = INs[i].get_initial()
+		y+=y0
+		cell_idxs.append(idx + np.array(range(len(y0))))
+		idx = idx + len(y0)
 	y = np.array(y)
+	cell_idxs = np.array(cell_idxs)
 
 
 
+	#####################################
 	#CREATE SYNAPSES
-	p_ENIN = 0.0; p_INEN = 0.0; p_ININ = 0.0; p_EN = 1.0; p_IN = 0.0
+	#####################################
+	p_ENIN = 0.5; p_INEN = 0.5; p_ININ = 0.5; p_EN = 0.5; p_IN = 0.5
 
+	#AMPA EN to IN
 	C_ENIN = np.random.rand(NECells,NICells)<p_ENIN
-	n_AMPA = sum(sum(C_ENIN))
-	pre_AMPA, post_AMPA = np.where(C_ENIN)
-	for i in range(n_AMPA):
-		synapses.append(AMPA(pre_AMPA[i], post_AMPA[i], g_AMPA))
-		INs[post_AMPA[i]].add_syn_idx(i)
+	if (len(C_ENIN)>0):
+		n_AMPA = sum(sum(C_ENIN))
+		pre_AMPA, post_AMPA = np.where(C_ENIN)
+		for i in range(n_AMPA):
+			synapses.append(AMPA(cell_idxs[pre_AMPA[i]][0], 
+				cell_idxs[post_AMPA[i]][0], g_AMPA))
+			INs[post_AMPA[i]].add_syn_idx(i)
 
+	#GABA IN to EN
 	C_INEN = np.random.rand(NICells,NECells)<p_INEN
-	n_GABA1 = sum(sum(C_INEN))
-	pre_GABA, post_GABA = np.where(C_INEN)
-	for i in range(n_GABA1):
-		synapses.append(GABA(pre_GABA[i], post_GABA[i], g_GABA))
-		ENs[post_GABA[i]].add_syn_idx(len(synapses)-1)
+	if (len(C_INEN)>0):
+		n_GABA1 = sum(sum(C_INEN))
+		pre_GABA, post_GABA = np.where(C_INEN)
+		for i in range(n_GABA1):
+			synapses.append(GABA(cell_idxs[pre_GABA[i]][0], 
+				cell_idxs[post_GABA[i]][0], g_GABA))
+			ENs[post_GABA[i]].add_syn_idx(len(synapses)-1)
 
+	#GABA IN to IN
 	C_ININ = np.random.rand(NICells,NICells)<p_ININ
-	n_GABA2 = sum(sum(C_ININ))
-	pre_GABA, post_GABA = np.where(C_ININ)
-	for i in range(n_GABA2):
-		synapses.append(GABA(pre_GABA[i], post_GABA[i], g_GABA))
-		INs[post_GABA[i]].add_syn_idx(len(synapses)-1)
+	if (len(C_ININ)>0):
+		n_GABA2 = sum(sum(C_ININ))
+		pre_GABA, post_GABA = np.where(C_ININ)
+		for i in range(n_GABA2):
+			synapses.append(GABA(cell_idxs[pre_GABA[i]][0], 
+				cell_idxs[post_GABA[i]][0], g_GABA))
+			INs[post_GABA[i]].add_syn_idx(len(synapses)-1)
 
+	#Input to IN - note there is only one input "synapse" that all cells listen to
+	t_on = 500; t_off = 1500
 	C_IN = np.random.rand(1,NICells)<p_IN
-	n_InpIN = sum(sum(C_IN))
-	jnk, post_Inp = np.where(C_IN)
-	synapses.append(InPulse(g_Inp))
-	for i in range(n_InpIN):
-		INs[post_Inp[i]].add_syn_idx(len(synapses)-1)
+	if (len(C_IN)>0):
+		n_InpIN = sum(sum(C_IN))
+		jnk, post_Inp = np.where(C_IN)
+		synapses.append(InPulse(g_Inp, t_on, t_off))
+		for i in range(n_InpIN):
+			INs[post_Inp[i]].add_syn_idx(len(synapses)-1)
+			
 
+	#Input to EN
 	C_EN = np.random.rand(1,NECells)<p_EN
-	n_InpEN = sum(sum(C_EN))
-	jnk, post_Inp = np.where(C_EN)
-	for i in range(n_InpEN):
-		ENs[post_Inp[i]].add_syn_idx(len(synapses)-1)
+	if (len(C_EN)>0):
+		n_InpEN = sum(sum(C_EN))
+		jnk, post_Inp = np.where(C_EN)
+		synapses.append(InPulse(g_Inp, t_on, t_off))
+		for i in range(n_InpEN):
+			ENs[post_Inp[i]].add_syn_idx(len(synapses)-1)
 
 
-	print('Synapses on EN[0]', ENs[0].syn_idxs)
-	print('Synapses on IN[0]', INs[0].syn_idxs)
+	if NECells>0:
+		print('Synapses on EN[0]', ENs[0].syn_idxs)
+	if NICells>0:
+		print('Synapses on IN[0]', INs[0].syn_idxs)
+
+
+
+
+
+
+	#####################################
 	#MAIN CALCULATION 
+	#####################################
 	t = 0
 	for i in range(0,NT):
 		if (i%2000==0):
 			print('t = ',t)
 		#SAVE y
-		y_sv.append(y.T[0])
+		#y_sv.append(y)
+		y_sv.append(y[cell_idxs.T[0]])
 		t_sv.append(t)
 		#UPDATE y
 		y,t = rk4(y,t,h,rhs)
