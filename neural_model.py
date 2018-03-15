@@ -141,7 +141,7 @@ class Cell:
 		iK = self.I_Na_K.iK
 		E_K = self.I_Na_K.E_K
 
-		dV = -self.G_l*(y[0] - self.E_l) - iNa - iK - self.G_kl*(y[0] - E_K) + self.DC/self.S -I_syn 
+		dV = -self.G_l*(y[0] - self.E_l) - iNa - iK - self.G_kl*(y[0] - E_K) + self.DC/self.S +I_syn 
 		return dV, dm, dh, dn
 
 
@@ -272,10 +272,10 @@ class InPulse:
 		
 	def calc(self,t,v_pre,v_post):
 		if (t>self.t_on and t<self.t_off):
-			self.I = -self.g_MAX*(1 - np.exp(-(t-self.t_on)/self.tau_on))
+			self.I = self.g_MAX*(1 - np.exp(-(t-self.t_on)/self.tau_on))
 			R = self.I
 		elif (t>=self.t_off):
-			self.I = -self.R*np.exp(-(t-self.t_off)/self.tau_off)
+			self.I = self.R*np.exp(-(t-self.t_off)/self.tau_off)
 		else:
 			self.I = 0
 		

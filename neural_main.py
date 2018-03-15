@@ -1,30 +1,36 @@
 ### MAIN CODE - to be used with neural_model.py
 import numpy as np
 import matplotlib.pyplot as plt
-from neural_model import *
+import neural_model as nm
+from importlib import reload
 from scipy.integrate import RK45
 
-NECells = 10
-NICells = 10
+NECells = 1
+NICells = 1
 
 np.random.seed(1)
 rDC = 5e-5*np.random.rand(NECells+NICells, 1).flatten()
 DC0 = 7e-5
-ENs = [Exc_Cell(V0=-70, DC=DC0+rDC[i]) for i in range(NECells)]
-INs = [Exc_Cell(V0=-70, DC=DC0+rDC[NECells+i]) for i in range(NICells)]
-#INs = [Inh_Cell(V0=-61) for _ in range(NICells)]
+ENs = [nm.Exc_Cell(V0=-70, DC=DC0+rDC[i]) for i in range(NECells)]
+INs = [nm.Exc_Cell(V0=-70, DC=DC0+rDC[NECells+i]) for i in range(NICells)]
+#INs = [nm.Inh_Cell(V0=-61) for _ in range(NICells)]
 
+#Global variables 
+# y		current state of all dynamic variables (v1,m1,h1,n1,v2,...) size NEQN,1
+# y_sv 		voltages only over time
+# t_sv		t over time
+# cell_idxs	This is a list of length NCELL where each entry contains the indicies of
+#			dynamic variables associated with each cell. This is critical to feed
+#			during Cell.calc(y[cell_idxs[i]],...)
+# synapses	list of synapse variables	
 y = []; y_sv = []; t_sv = []; cell_idxs = []; synapses = []
 
-g_AMPA = 1e-1; g_GABA = 1e-1; g_Inp = 1e-1
-
-#TODO - single linear y variable. 
+g_AMPA = 1e-1; g_GABA = 100; g_Inp = 1e-1
 
 
 def rhs(y,t):
 	dy = []
 	for syn in synapses:
-		#TODO - Need to do deal with the input case
 		i_pre = syn.pre_idx; i_post = syn.post_idx
 		if ((i_pre is not -1) and (i_post is not -1)):
 			v_pre = y[i_pre]; v_post = y[i_post]
@@ -75,7 +81,7 @@ def main():
 	#####################################
 	#CREATE SYNAPSES
 	#####################################
-	p_ENIN = 0.5; p_INEN = 0.5; p_ININ = 0.5; p_EN = 0.5; p_IN = 0.5
+	p_ENIN = 1.0; p_INEN = 0.0; p_ININ = 0.0; p_EN = 1.0; p_IN = 0.0
 
 	#AMPA EN to IN
 	C_ENIN = np.random.rand(NECells,NICells)<p_ENIN
@@ -83,7 +89,7 @@ def main():
 		n_AMPA = sum(sum(C_ENIN))
 		pre_AMPA, post_AMPA = np.where(C_ENIN)
 		for i in range(n_AMPA):
-			synapses.append(AMPA(cell_idxs[pre_AMPA[i]][0], 
+			synapses.append(nm.AMPA(cell_idxs[pre_AMPA[i]][0], 
 				cell_idxs[post_AMPA[i]][0], g_AMPA))
 			INs[post_AMPA[i]].add_syn_idx(i)
 
@@ -93,7 +99,7 @@ def main():
 		n_GABA1 = sum(sum(C_INEN))
 		pre_GABA, post_GABA = np.where(C_INEN)
 		for i in range(n_GABA1):
-			synapses.append(GABA(cell_idxs[pre_GABA[i]][0], 
+			synapses.append(nm.GABA(cell_idxs[pre_GABA[i]][0], 
 				cell_idxs[post_GABA[i]][0], g_GABA))
 			ENs[post_GABA[i]].add_syn_idx(len(synapses)-1)
 
@@ -103,7 +109,7 @@ def main():
 		n_GABA2 = sum(sum(C_ININ))
 		pre_GABA, post_GABA = np.where(C_ININ)
 		for i in range(n_GABA2):
-			synapses.append(GABA(cell_idxs[pre_GABA[i]][0], 
+			synapses.append(nm.GABA(cell_idxs[pre_GABA[i]][0], 
 				cell_idxs[post_GABA[i]][0], g_GABA))
 			INs[post_GABA[i]].add_syn_idx(len(synapses)-1)
 
@@ -113,7 +119,7 @@ def main():
 	if (len(C_IN)>0):
 		n_InpIN = sum(sum(C_IN))
 		jnk, post_Inp = np.where(C_IN)
-		synapses.append(InPulse(g_Inp, t_on, t_off))
+		synapses.append(nm.InPulse(g_Inp, t_on, t_off))
 		for i in range(n_InpIN):
 			INs[post_Inp[i]].add_syn_idx(len(synapses)-1)
 			
@@ -123,7 +129,7 @@ def main():
 	if (len(C_EN)>0):
 		n_InpEN = sum(sum(C_EN))
 		jnk, post_Inp = np.where(C_EN)
-		synapses.append(InPulse(g_Inp, t_on, t_off))
+		synapses.append(nm.InPulse(g_Inp, t_on, t_off))
 		for i in range(n_InpEN):
 			ENs[post_Inp[i]].add_syn_idx(len(synapses)-1)
 
@@ -150,7 +156,7 @@ def main():
 		y_sv.append(y[cell_idxs.T[0]])
 		t_sv.append(t)
 		#UPDATE y
-		y,t = rk4(y,t,h,rhs)
+		y,t = nm.rk4(y,t,h,rhs)
 
 if __name__ is '__main__':
 	main()

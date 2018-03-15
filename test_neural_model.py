@@ -49,7 +49,7 @@ def test_InPulse():
 	
 def test_synapse():
 	g_MAX = 1e-1
-	a = AMPA(-1,-1,g_MAX)
+	a = GABA(-1,-1,g_MAX)
 	h = 0.05
 	TF = 100
 	NT = int(np.ceil(TF/h))
