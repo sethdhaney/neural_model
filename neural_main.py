@@ -5,27 +5,25 @@ import neural_model as nm
 from importlib import reload
 from scipy.integrate import RK45
 
-NECells = 1
-NICells = 1
+NECells = 4
+NICells = 4
 
 np.random.seed(1)
 rDC = 5e-5*np.random.rand(NECells+NICells, 1).flatten()
 DC0 = 7e-5
 ENs = [nm.Exc_Cell(V0=-70, DC=DC0+rDC[i]) for i in range(NECells)]
-INs = [nm.Exc_Cell(V0=-70, DC=DC0+rDC[NECells+i]) for i in range(NICells)]
-#INs = [nm.Inh_Cell(V0=-61) for _ in range(NICells)]
+#INs = [nm.Exc_Cell(V0=-70, DC=DC0+rDC[NECells+i]) for i in range(NICells)]
+INs = [nm.Inh_Cell(V0=-61, DC=DC0+rDC[NECells+i]) for i in range(NICells)]
 
-#Global variables 
-# y		current state of all dynamic variables (v1,m1,h1,n1,v2,...) size NEQN,1
-# y_sv 		voltages only over time
-# t_sv		t over time
-# cell_idxs	This is a list of length NCELL where each entry contains the indicies of
-#			dynamic variables associated with each cell. This is critical to feed
-#			during Cell.calc(y[cell_idxs[i]],...)
-# synapses	list of synapse variables	
-y = []; y_sv = []; t_sv = []; cell_idxs = []; synapses = []
+y=[]		#current state of all dynamic variables (v1,m1,h1,n1,v2,...) size NEQN,1
+y_sv=[]		#voltages only over time
+t_sv=[]		#t over time
+cell_idxs=[]	#This is a list of length NCELL where each entry contains the indicies of
+		#dynamic variables associated with each cell. This is critical to feed
+		#during Cell.calc(y[cell_idxs[i]],...)
+synapses=[]	#list of synapse variables	
 
-g_AMPA = 1e-1; g_GABA = 100; g_Inp = 1e-1
+g_AMPA = 1e-1; g_GABA = 0; g_Inp = 1e-1
 
 
 def rhs(y,t):
@@ -81,7 +79,7 @@ def main():
 	#####################################
 	#CREATE SYNAPSES
 	#####################################
-	p_ENIN = 1.0; p_INEN = 0.0; p_ININ = 0.0; p_EN = 1.0; p_IN = 0.0
+	p_ENIN = 1.0; p_INEN = 0.0; p_ININ = 0.0; p_EN = 1.0; p_IN = 1.0
 
 	#AMPA EN to IN
 	C_ENIN = np.random.rand(NECells,NICells)<p_ENIN
